@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -19,7 +20,6 @@ public class Company {
     private static Logger logger = Logger.getLogger(Company.class.getName());
     private static String executePath;
     private static Company instance;
-    private static String fileProperty = "test.properties";
 
     static {
         FileHandler handler = null;
@@ -29,11 +29,12 @@ public class Company {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        handler.setFormatter(new SimpleFormatter());
+        Objects.requireNonNull(handler).setFormatter(new SimpleFormatter());
         handler.setLevel(Level.INFO);
         logger.addHandler(handler);
     }
 
+    private String fileProperty = "test.properties";
     private Properties prop = new Properties();
     @Property(propertyName = "com.mycompany.name")
     private String myCompanyName;
@@ -50,9 +51,9 @@ public class Company {
     @Property(propertyName = "com.mycompany.capitalization", defaultValue = "30.3")
     private Double capitalization;
 
-    private Company(String fp) {
-        if (fp != null) {
-            fileProperty = fp;
+    private Company(String fileProperties) {
+        if (fileProperties != null) {
+            fileProperty = fileProperties;
         }
         try {
             loadClassFromProperties();
@@ -62,15 +63,14 @@ public class Company {
     }
 
     /**
-     * @param fp name file properties
+     * @param fileProperties name file properties
      * @return instance Company
      */
-    public static Company getInstance(String fp) {
+    public static Company getInstance(String fileProperties) {
         if (instance == null) {
-            instance = new Company(fp);
-        }
-        if (fp != null) {
-            fileProperty = fp;
+            instance = new Company(fileProperties);
+        } else if (fileProperties != null) {
+            instance.fileProperty = fileProperties;
         }
         return instance;
     }
@@ -78,44 +78,44 @@ public class Company {
 
     private void loadClassFromProperties() throws Exception {
         refreshProperties();
-        for (Field f : this.getClass().getDeclaredFields()) {
+        for (Field field : this.getClass().getDeclaredFields()) {
             try {
-                setFieldFromProperties(f);
+                setFieldFromProperties(field);
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Exception in setFieldFromProperties method", e);
-                f.set(this, null);
+                field.set(this, null);
             }
         }
 
     }
 
-    private void setFieldFromProperties(Field f) throws Exception {
-        Property annotation = f.getAnnotation(Property.class);
+    private void setFieldFromProperties(Field field) throws Exception {
+        Property annotation = field.getAnnotation(Property.class);
         if (annotation == null) return;
         String currProp = prop.getProperty(annotation.propertyName());
         if (currProp == null) {
             currProp = annotation.defaultValue();
         }
         if (currProp.equals("")) {
-            f.set(this, null);
+            field.set(this, null);
             return;
         }
-        if (f.getType() == Integer.class) {
+        if (field.getType() == Integer.class) {
             Integer i = Integer.valueOf(currProp);
-            f.set(this, i);
-        } else if (f.getType() == String.class) {
-            f.set(this, currProp);
-        } else if (f.getType() == Double.class) {
+            field.set(this, i);
+        } else if (field.getType() == String.class) {
+            field.set(this, currProp);
+        } else if (field.getType() == Double.class) {
             Double d = Double.valueOf(currProp);
-            f.set(this, d);
+            field.set(this, d);
 
-        } else if (f.getType() == Address.class) {
+        } else if (field.getType() == Address.class) {
             Gson gson = new Gson();
             Address addr = gson.fromJson(currProp, Address.class);
-            f.set(this, addr);
+            field.set(this, addr);
         } else {
-            logger.log(Level.WARNING, String.format("The type %s is not allowed for annotation", f.getName()));
-            f.set(this, null);
+            logger.log(Level.WARNING, String.format("The type %s is not allowed for annotation", field.getName()));
+            field.set(this, null);
         }
 
     }
